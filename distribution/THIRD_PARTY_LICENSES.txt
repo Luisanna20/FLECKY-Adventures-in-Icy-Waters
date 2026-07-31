@@ -1,0 +1,82 @@
+FLECKY: Adventures in Icy Waters
+Third-party assets and attribution
+==================================
+
+3D FISH AND SHARK
+
+Author: Quaternius
+License: Creative Commons Zero 1.0 Universal (CC0 1.0)
+License: https://creativecommons.org/publicdomain/zero/1.0/
+
+Sources:
+- Tuna: https://poly.pizza/m/1tycAcvSVW
+- Cardinal Fish: https://poly.pizza/m/YyZyVhg2Jq
+- Red Snapper: https://poly.pizza/m/BRKfDKwPTv
+- Shark: https://poly.pizza/m/YYsK3gRCBZ
+
+
+TREASURE MODEL
+
+Chest with Gold
+Author: Quaternius
+License: Creative Commons Zero 1.0 Universal (CC0 1.0)
+Source: https://poly.pizza/m/haqf9qoiOG
+
+
+AMBIENT SEA-LIFE MODELS
+
+Crab
+Author: Quaternius
+License: Creative Commons Zero 1.0 Universal (CC0 1.0)
+Source: https://poly.pizza/m/Gs3yfsV5lB
+
+Octopus
+Author: Poly by Google
+License: Creative Commons Attribution 3.0 (CC BY 3.0)
+Source: https://poly.pizza/m/flkOBUVpPHg
+
+
+UNDERWATER PLANT MODELS
+
+Kelp
+Author: Poly by Google
+License: Creative Commons Attribution (CC BY)
+Source: https://poly.pizza/m/4cFllH6Iazk
+
+Seaweed 3
+Author: Laney XR Labs
+License: Creative Commons Attribution (CC BY)
+Source: https://poly.pizza/m/f_gXhnf06Oc
+
+
+SEABED TEXTURE
+
+Low Tide Rocks
+Author: Dimitrios Savva / Poly Haven
+License: Creative Commons Zero (CC0)
+Source: https://polyhaven.com/a/low_tide_rocks
+
+
+SNOW TEXTURE
+
+Snow 02
+Author: Rob Tuytel / Poly Haven
+License: Creative Commons Zero 1.0 Universal (CC0 1.0)
+Source: https://polyhaven.com/a/snow_02
+
+
+WATER SOUND EFFECTS
+
+Asset: 40 CC0 water / splash / slime SFX
+Author: rubberduck
+License: Creative Commons Zero 1.0 Universal (CC0 1.0)
+Source: https://opengameart.org/content/40-cc0-water-splash-slime-sfx
+
+
+ENGINE
+
+Godot Engine 4.6.3
+License: MIT
+Copyright (c) 2014-present Godot Engine contributors.
+Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.
+License text: https://godotengine.org/license/

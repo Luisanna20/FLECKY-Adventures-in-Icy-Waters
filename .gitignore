@@ -1,0 +1,6 @@
+.godot/
+build/
+tools/
+*preview*.png
+*preview*.png.import
+*.log

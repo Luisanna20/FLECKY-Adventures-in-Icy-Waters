@@ -2,9 +2,11 @@ class_name WaterEnvironmentController
 extends Node
 
 const OVERLAY_SHADER := preload("res://shaders/underwater_overlay.gdshader")
+const SUN_SHAFTS := preload("res://scripts/underwater_sunlight.gd")
 
 var water_level := 0.0
 var underwater_amount := 0.0
+var _depth_amount := 0.0
 var _environment: Environment
 var _overlay_material: ShaderMaterial
 var _low_pass: AudioEffectLowPassFilter
@@ -15,6 +17,9 @@ func configure(environment: Environment, surface_height: float) -> void:
 	water_level = surface_height
 	_build_overlay()
 	_setup_audio_filter()
+	var sunlight := SUN_SHAFTS.new()
+	sunlight.name = "UnderwaterSunlight"
+	add_child(sunlight)
 
 
 func _process(delta: float) -> void:
@@ -26,23 +31,26 @@ func _process(delta: float) -> void:
 
 	var target := 1.0 if camera.global_position.y < water_level - 0.10 else 0.0
 	underwater_amount = move_toward(underwater_amount, target, delta * 1.85)
+	var camera_depth := maxf(water_level - camera.global_position.y, 0.0)
+	_depth_amount = lerpf(_depth_amount, clampf(camera_depth / 12.0, 0.0, 1.0), minf(delta * 2.5, 1.0))
 	_overlay_material.set_shader_parameter("underwater_amount", underwater_amount)
+	_overlay_material.set_shader_parameter("depth_amount", _depth_amount)
 
 	_environment.background_color = Color(0.12, 0.31, 0.43).lerp(
 		Color(0.025, 0.31, 0.39),
 		underwater_amount
 	)
 	_environment.ambient_light_color = Color(0.48, 0.67, 0.76).lerp(
-		Color(0.30, 0.63, 0.70),
+		Color(0.48, 0.62, 0.65),
 		underwater_amount
 	)
-	_environment.ambient_light_energy = lerpf(0.72, 0.90, underwater_amount)
+	_environment.ambient_light_energy = lerpf(0.72, lerpf(0.72, 0.57, _depth_amount), underwater_amount)
 	_environment.fog_light_color = Color(0.34, 0.55, 0.64).lerp(
-		Color(0.14, 0.49, 0.56),
+		Color(0.055, 0.25, 0.31),
 		underwater_amount
 	)
-	_environment.fog_density = lerpf(0.004, 0.0095, underwater_amount)
-	_environment.fog_height_density = lerpf(0.018, 0.008, underwater_amount)
+	_environment.fog_density = lerpf(0.004, lerpf(0.012, 0.021, _depth_amount), underwater_amount)
+	_environment.fog_height_density = lerpf(0.018, 0.003, underwater_amount)
 
 	if is_instance_valid(_low_pass):
 		_low_pass.cutoff_hz = lerpf(20500.0, 1450.0, underwater_amount)

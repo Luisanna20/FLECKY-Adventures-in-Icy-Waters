@@ -4,6 +4,7 @@ extends Node3D
 signal dance_started
 
 const CRAB_SCENE := preload("res://assets/models/ambient_life/crab_enemy.glb")
+const CRAB_MODEL := preload("res://scripts/crab_model.gd")
 const WALK_ANIMATION := &"MonsterArmature|Walk"
 const THREAT_ANIMATION := &"MonsterArmature|Bite_InPlace"
 const DANCE_ANIMATION := &"MonsterArmature|Dance"
@@ -16,6 +17,7 @@ enum Reaction {
 	DANCE,
 }
 
+var _ground_height: Callable
 var _waypoints: Array[Vector3] = []
 var _target_waypoint := 1
 var _route_direction := 1
@@ -28,13 +30,17 @@ var _reaction_time := 0.0
 var _threat_cooldown := 0.0
 var _dance_count := 0
 var _threat_count := 0
+var _shell_material: ShaderMaterial
+var _visual: Node3D
 
 
 func configure(
 	route_points: Array,
 	travel_speed: float = 0.46,
-	flaki: Node3D = null
+	flaki: Node3D = null,
+	ground_height: Callable = Callable()
 ) -> void:
+	_ground_height = ground_height
 	_waypoints.clear()
 	for route_point in route_points:
 		if route_point is Vector3:
@@ -49,11 +55,13 @@ func configure(
 	global_position = _waypoints[0]
 
 	var visual := CRAB_SCENE.instantiate() as Node3D
+	_visual = visual
 	visual.name = "QuaterniusCrab"
 	visual.scale = Vector3.ONE * 0.76
 	visual.rotation_degrees.y = 180.0
 	add_child(visual)
-	_prepare_model(visual)
+	_shell_material = CRAB_MODEL.new().apply(visual)
+	_align_to_ground(1.0)
 
 	_animation_player = visual.find_child("AnimationPlayer", true, false) as AnimationPlayer
 	if is_instance_valid(_animation_player):
@@ -64,6 +72,9 @@ func configure(
 
 
 func _process(delta: float) -> void:
+	_align_to_ground(minf(delta*5.0,1.0))
+	if is_instance_valid(_shell_material):
+		_shell_material.set_shader_parameter("walking",1.0 if _reaction==Reaction.NONE else 0.0)
 	if _waypoints.size() < 2:
 		return
 	_elapsed += delta
@@ -72,7 +83,7 @@ func _process(delta: float) -> void:
 		_reaction_time = maxf(_reaction_time - delta, 0.0)
 		_face_flaki(delta, 7.0)
 		global_position.y = (
-			_waypoints[_target_waypoint].y
+			_surface_height()
 			+ sin(_elapsed * 5.2) * 0.025
 		)
 		if _reaction_time <= 0.0:
@@ -89,6 +100,7 @@ func _process(delta: float) -> void:
 	var travel_direction := Vector3.ZERO
 	while remaining_distance > 0.0001:
 		var target := _waypoints[_target_waypoint]
+		target.y = global_position.y
 		var offset := target - global_position
 		var target_distance := offset.length()
 		if target_distance <= 0.001:
@@ -100,7 +112,7 @@ func _process(delta: float) -> void:
 		remaining_distance -= step_distance
 		if step_distance >= target_distance - 0.001:
 			_advance_waypoint()
-	global_position.y = _waypoints[_target_waypoint].y + sin(_elapsed * 5.2) * 0.025
+	global_position.y = _surface_height() + sin(_elapsed * 5.2) * 0.025
 
 	# A crab looks more natural side-stepping instead of marching like a tiny tank.
 	var facing_direction := Vector3(-travel_direction.z, 0.0, travel_direction.x)
@@ -237,25 +249,17 @@ func _advance_waypoint() -> void:
 	_target_waypoint += _route_direction
 
 
-func _prepare_model(node: Node) -> void:
-	if node is MeshInstance3D:
-		var mesh_instance := node as MeshInstance3D
-		mesh_instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		for surface_index in mesh_instance.mesh.get_surface_count():
-			var source := mesh_instance.get_active_material(surface_index)
-			if source is StandardMaterial3D:
-				var material := (source as StandardMaterial3D).duplicate() as StandardMaterial3D
-				material.emission_enabled = true
-				if source.resource_name in ["Main", "Main_Dark"]:
-					material.albedo_color = material.albedo_color.lerp(
-						Color(0.88, 0.30, 0.17),
-						0.48
-					)
-					material.emission = material.albedo_color * 0.82
-					material.emission_energy_multiplier = 1.05
-				else:
-					material.emission = material.albedo_color * 0.38
-					material.emission_energy_multiplier = 0.62
-				mesh_instance.set_surface_override_material(surface_index, material)
-	for child in node.get_children():
-		_prepare_model(child)
+func _align_to_ground(amount: float) -> void:
+	if not _ground_height.is_valid() or not is_instance_valid(_visual):
+		return
+	var p := global_position
+	var slope_x := (float(_ground_height.call(p.x+0.65,p.z))-float(_ground_height.call(p.x-0.65,p.z)))/1.3
+	var slope_z := (float(_ground_height.call(p.x,p.z+0.65))-float(_ground_height.call(p.x,p.z-0.65)))/1.3
+	var up := global_basis.inverse()*Vector3(-slope_x,1.0,-slope_z).normalized()
+	var target := Basis.looking_at(Vector3.BACK.slide(up).normalized(),up)
+	_visual.basis=_visual.basis.orthonormalized().slerp(target,amount).scaled(Vector3.ONE*0.76)
+
+func _surface_height() -> float:
+	if _ground_height.is_valid():
+		return float(_ground_height.call(global_position.x,global_position.z))+0.72
+	return _waypoints[_target_waypoint].y

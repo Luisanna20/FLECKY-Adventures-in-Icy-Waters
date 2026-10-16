@@ -1,8 +1,8 @@
 class_name AmbientOctopus
 extends Node3D
 
-const OCTOPUS_SCENE := preload("res://assets/models/ambient_life/octopus.glb")
-const MODEL_SCALE := 0.025
+const OCTOPUS_MODEL := preload("res://scripts/octopus_model.gd")
+const MODEL_SCALE := 1.0
 const MODEL_HALF_HEIGHT := 0.72
 const TRACKING_RADIUS := 16.0
 const MAX_TRACKING_ANGLE := deg_to_rad(68.0)
@@ -27,12 +27,10 @@ func configure(
 	_base_rotation = facing_yaw
 	_levitating = levitating
 	_flaki = flaki
-	_visual = OCTOPUS_SCENE.instantiate() as Node3D
-	_visual.name = "PolyByGoogleOctopus"
+	_visual = OCTOPUS_MODEL.new()
 	_visual.scale = Vector3.ONE * MODEL_SCALE
 	_visual.rotation.y = facing_yaw
 	add_child(_visual)
-	_prepare_model(_visual)
 
 
 func _process(delta: float) -> void:
@@ -113,20 +111,3 @@ func get_facing_error_to_flaki() -> float:
 		return 0.0
 	var wanted_yaw := atan2(to_flaki.x, to_flaki.z)
 	return absf(angle_difference(_visual.global_rotation.y, wanted_yaw))
-
-
-func _prepare_model(node: Node) -> void:
-	if node is MeshInstance3D:
-		var mesh_instance := node as MeshInstance3D
-		mesh_instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		for surface_index in mesh_instance.mesh.get_surface_count():
-			var source := mesh_instance.get_active_material(surface_index)
-			if source is StandardMaterial3D:
-				var material := (source as StandardMaterial3D).duplicate() as StandardMaterial3D
-				material.albedo_color *= Color(0.72, 0.48, 0.86)
-				material.emission_enabled = true
-				material.emission = Color(0.31, 0.11, 0.39)
-				material.emission_energy_multiplier = 0.64
-				mesh_instance.set_surface_override_material(surface_index, material)
-	for child in node.get_children():
-		_prepare_model(child)

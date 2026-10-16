@@ -44,6 +44,7 @@ var _checkpoint_position := Vector3.ZERO
 var _random := RandomNumberGenerator.new()
 var _fast_test := false
 var _demo_finished := false
+var _cave_refuge: Node3D
 
 
 func configure(target_player: FlakiController) -> void:
@@ -87,6 +88,10 @@ func _process(delta: float) -> void:
 			if _state_time <= 0.0:
 				_state = SharkState.DORMANT
 				_natural_attack_time = 34.0
+
+	if _shark.visible:
+		for refuge in get_tree().get_nodes_in_group("shark_shelter"):
+			refuge.keep_shark_out(_shark)
 
 
 func notify_fish_count(caught_fish: int) -> void:
@@ -140,6 +145,7 @@ func is_disabled_for_victory() -> bool:
 func _start_warning() -> void:
 	if _state not in [SharkState.DORMANT, SharkState.COOLDOWN]:
 		return
+	_cave_refuge=null
 	_state = SharkState.WARNING
 	_state_time = WARNING_DURATION
 	_orbit_angle = _random.randf_range(0.0, TAU)
@@ -178,7 +184,7 @@ func _update_warning(delta: float) -> void:
 
 func _update_hunt(delta: float) -> void:
 	_state_time -= delta
-	if player.is_on_ice():
+	if player.is_safe_from_shark():
 		_start_circling()
 		return
 	if player.is_transitioning():
@@ -201,23 +207,30 @@ func _update_hunt(delta: float) -> void:
 
 
 func _start_circling() -> void:
+	_cave_refuge = player.get_cave_shelter()
 	_state = SharkState.CIRCLING
 	_state_time = 1.2 if _fast_test else CIRCLE_DURATION
 	_orbit_angle = atan2(
 		_shark.global_position.z - player.global_position.z,
 		_shark.global_position.x - player.global_position.x
 	)
-	alert_changed.emit("SHARK_CIRCLING", true)
+	alert_changed.emit("SHARK_CAVE_WAIT" if is_instance_valid(_cave_refuge) else "SHARK_CIRCLING", not is_instance_valid(_cave_refuge))
 
 
 func _update_circle(delta: float) -> void:
 	_state_time -= delta
-	if player.is_swimming():
+	if player.is_swimming() and not player.is_safe_from_shark():
 		_state = SharkState.HUNTING
 		_state_time = 8.0
 		alert_changed.emit("SHARK_HIDE", true)
 		return
 	_orbit_angle += delta * 0.82
+	var refuge := player.get_cave_shelter()
+	if is_instance_valid(refuge):
+		_cave_refuge=refuge
+		_shark.swim_towards(refuge.waiting_position(_orbit_angle),3.0,delta)
+		if _state_time <= 0.0: _start_retreat()
+		return
 	var circle_target := player.global_position + Vector3(
 		cos(_orbit_angle) * 7.5,
 		0.0,
@@ -237,6 +250,8 @@ func _start_retreat() -> void:
 		if flat_position.length() > 0.5
 		else Vector2(0.0, 1.0)
 	)
+	if is_instance_valid(_cave_refuge):
+		retreat_direction = -Vector2(_cave_refuge.global_position.x,_cave_refuge.global_position.z).normalized()
 	_retreat_target = Vector3(retreat_direction.x * 76.0, -4.0, retreat_direction.y * 76.0)
 	alert_changed.emit("SHARK_LEAVING", false)
 
@@ -253,7 +268,7 @@ func _update_retreat(delta: float) -> void:
 
 
 func _bite_player() -> void:
-	if player.is_on_ice():
+	if player.is_safe_from_shark():
 		return
 	_shark.play_bite()
 	hearts -= 1
@@ -279,7 +294,7 @@ func _can_bite(distance_to_player: float) -> bool:
 		distance_to_player <= BITE_DISTANCE
 		and _invulnerability_time <= 0.0
 		and not _bite_requires_separation
-		and not player.is_on_ice()
+		and not player.is_safe_from_shark()
 	)
 
 

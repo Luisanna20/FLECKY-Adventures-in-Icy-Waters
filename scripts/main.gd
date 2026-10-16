@@ -2,14 +2,25 @@ extends Node3D
 
 const FLAKI_SCENE := preload("res://scenes/flaki.tscn")
 const CAMERA_RIG_SCENE := preload("res://scenes/camera_rig.tscn")
+const COLD_SEABED = preload("res://scripts/cold_seabed.gd")
+const SCULPTED_ICE = preload("res://scripts/sculpted_ice.gd")
+const FLOE_ICE_SHADER = preload("res://shaders/floe_ice.gdshader")
+const CAVE_SHELTER = preload("res://scripts/cave_shelter.gd")
+const NATURAL_CAVE = preload("res://scripts/natural_cave.gd")
+const COLD_KELP = preload("res://scripts/cold_kelp.gd")
+const COAST_SAND_DIFFUSE = preload("res://assets/textures/cold_coast/coast_sand_02_diff_2k.jpg")
+const COAST_SAND_NORMAL = preload("res://assets/textures/cold_coast/coast_sand_02_nor_gl_2k.jpg")
+const COAST_SAND_ROUGHNESS = preload("res://assets/textures/cold_coast/coast_sand_02_rough_1k.jpg")
+const COAST_ROCK_DIFFUSE = preload("res://assets/textures/cold_coast/rock_boulder_dry_diff_2k.jpg")
+const COAST_ROCK_NORMAL = preload("res://assets/textures/cold_coast/rock_boulder_dry_nor_gl_2k.jpg")
+const COAST_ROCK_ROUGHNESS = preload("res://assets/textures/cold_coast/rock_boulder_dry_rough_1k.jpg")
 const WATER_SHADER := preload("res://shaders/icy_water.gdshader")
+const WATER_RIPPLE_NORMAL := preload("res://assets/textures/water_ripple_normal.tres")
 const UNDERWATER_GROUND_SHADER := preload("res://shaders/underwater_ground.gdshader")
 const ARCTIC_DAY_SKY_SHADER := preload("res://shaders/arctic_day_sky.gdshader")
 const ARCTIC_DAY_PANORAMA := preload("res://assets/textures/sky/arctic_day_panorama.png")
 const UNDERWATER_PLANT_SHADER := preload("res://shaders/underwater_plant.gdshader")
 const TREASURE_GOLD_SHADER := preload("res://shaders/treasure_gold.gdshader")
-const KELP_SCENE := preload("res://assets/models/underwater_plants/kelp.glb")
-const SEAWEED_SCENE := preload("res://assets/models/underwater_plants/seaweed_3.glb")
 const TREASURE_CHEST_SCENE := preload("res://assets/models/treasure/chest_with_gold.glb")
 const SEABED_DIFFUSE := preload("res://assets/textures/seabed/low_tide_rocks_diff_1k.jpg")
 const SEABED_ROUGHNESS := preload("res://assets/textures/seabed/low_tide_rocks_rough_1k.jpg")
@@ -46,6 +57,7 @@ var _danger_overlay: ColorRect
 var _hud_canvas: CanvasLayer
 var _fish_prompt_text := ""
 var _ice_prompt_text := ""
+var _in_cave_shelter := false
 var _shark_alert_text := ""
 var _caught_fish := 0
 var _fish_target := FishManager.TARGET_FISH
@@ -61,6 +73,8 @@ var _ice_rest_time := 0.0
 var _achievement_treasure: Node3D
 var _environment: Environment
 var _plant_material_cache := {}
+var _coast = COLD_SEABED.new()
+var _kelp_meshes: Array[ArrayMesh] = []
 var _plant_interaction_position := Vector3(0.0, -1000.0, 0.0)
 var _plant_interaction_velocity := Vector3.ZERO
 var _plant_interaction_activity := 0.0
@@ -90,6 +104,10 @@ func _ready() -> void:
 
 
 func _process(delta: float) -> void:
+	var sheltered := is_instance_valid(_flaki) and _flaki.get_cave_shelter() != null
+	if sheltered != _in_cave_shelter:
+		_in_cave_shelter=sheltered
+		_refresh_context_prompt()
 	_update_underwater_plant_interaction(delta)
 	_update_achievement_progress(delta)
 	if is_instance_valid(_flaki) and is_instance_valid(_depth_label):
@@ -565,6 +583,9 @@ func _maybe_run_smoke_test() -> void:
 	Input.action_release("move_forward")
 	Input.action_release("dive_down")
 	var dive_position := _flaki.global_position
+	# Test the surface clamp in open water. Random floe rotation can put the
+	# initial swim route under ice, where collision correctly prevents surfacing.
+	_flaki.global_position = Vector3(0.0, dive_position.y, 12.0)
 	_flaki.velocity.x = 0.0
 	_flaki.velocity.z = 0.0
 
@@ -665,35 +686,18 @@ func _maybe_run_smoke_test() -> void:
 	var fish_avoids_seabed_objects := false
 	var fish_obstacle_height := -INF
 	var fish_obstacle_minimum := INF
-	var test_shelf := get_node_or_null(
-		"ExpandedIcyBay/UnderwaterShelf_00"
-	) as StaticBody3D
-	var test_shelf_collision: CollisionShape3D
-	if is_instance_valid(test_shelf):
-		for child in test_shelf.get_children():
-			if child is CollisionShape3D:
-				test_shelf_collision = child as CollisionShape3D
-				break
-	if (
-		is_instance_valid(sample_fish)
-		and is_instance_valid(test_shelf_collision)
-		and test_shelf_collision.shape is CylinderShape3D
-	):
-		var shelf_shape := test_shelf_collision.shape as CylinderShape3D
-		var shelf_top := test_shelf.global_position.y + shelf_shape.height * 0.5
-		sample_fish.global_position = Vector3(
-			test_shelf.global_position.x,
-			shelf_top + BayFish.COLLISION_RADIUS + 0.24,
-			test_shelf.global_position.z
-		)
+	var sample_ground := Vector2(-25.0,-15.0)
+	var ray := PhysicsRayQueryParameters3D.create(Vector3(sample_ground.x,-5.0,sample_ground.y),Vector3(sample_ground.x,-18.0,sample_ground.y),1)
+	var seabed_hit := get_world_3d().direct_space_state.intersect_ray(ray)
+	if is_instance_valid(sample_fish) and not seabed_hit.is_empty():
+		sample_fish.global_position = seabed_hit.position + Vector3.UP*(BayFish.COLLISION_RADIUS+0.24)
 		sample_fish.debug_force_swim(Vector3.DOWN)
 		for frame in 75:
 			await get_tree().physics_frame
 		fish_obstacle_height = sample_fish.global_position.y
-		fish_obstacle_minimum = shelf_top + BayFish.COLLISION_RADIUS - 0.08
-		fish_avoids_seabed_objects = (
-			fish_obstacle_height >= fish_obstacle_minimum
-		)
+		fish_obstacle_minimum = _coast.height_at(sample_fish.global_position.x,sample_fish.global_position.z)+BayFish.COLLISION_RADIUS-0.12
+		fish_avoids_seabed_objects = fish_obstacle_height >= fish_obstacle_minimum
+
 	var sample_plant := get_tree().get_first_node_in_group("underwater_plant") as Node3D
 	var sample_plant_mesh := (
 		sample_plant.find_child("*", true, false) as MeshInstance3D
@@ -706,7 +710,7 @@ func _maybe_run_smoke_test() -> void:
 		else null
 	)
 	var underwater_plants_are_ready := (
-		get_tree().get_node_count_in_group("underwater_plant") == 43
+		get_tree().get_node_count_in_group("underwater_plant") >= 100
 		and sample_plant_material is ShaderMaterial
 		and (sample_plant_material as ShaderMaterial).shader == UNDERWATER_PLANT_SHADER
 		and float(
@@ -767,9 +771,8 @@ func _maybe_run_smoke_test() -> void:
 		and (sample_snow_material as StandardMaterial3D).normal_texture == SNOW_NORMAL
 		and (sample_snow_material as StandardMaterial3D).cull_mode
 			== BaseMaterial3D.CULL_DISABLED
-		and sample_ice_side_material is StandardMaterial3D
-		and (sample_ice_side_material as StandardMaterial3D).cull_mode
-			== BaseMaterial3D.CULL_DISABLED
+		and sample_ice_side_material is ShaderMaterial
+		and (sample_ice_side_material as ShaderMaterial).shader == FLOE_ICE_SHADER
 		and get_tree().get_node_count_in_group("snow_feature") == 0
 	)
 	var sample_cliff_mesh := get_node_or_null(
@@ -876,12 +879,9 @@ func _maybe_run_smoke_test() -> void:
 		and is_instance_valid(sample_cave_anchor)
 		and is_instance_valid(sample_cave.get_node_or_null("CaveGlow"))
 		and sample_cave.get_node_or_null("CaveMotes") is GPUParticles3D
-		and sample_cave.get_node_or_null("CaveLeftWall") is StaticBody3D
-		and sample_cave.get_node_or_null("CaveRightWall") is StaticBody3D
-		and sample_cave.get_node_or_null("CaveLeftLining") is MeshInstance3D
-		and sample_cave.get_node_or_null("CaveRightLining") is MeshInstance3D
-		and sample_cave.get_node_or_null("CaveRoofLining") is MeshInstance3D
-		and sample_cave.get_node_or_null("CaveBackLining") is MeshInstance3D
+		and sample_cave.get_node_or_null("NaturalCaveShell") is StaticBody3D
+		and sample_cave.get_node_or_null("NaturalCaveShell/ContinuousRock") is MeshInstance3D
+		and (sample_cave.get_node("NaturalCaveShell/RockCollision") as CollisionShape3D).shape is ConcavePolygonShape3D
 		and is_instance_valid(sample_treasure)
 		and sample_treasure.get_node_or_null("ChestWithGold") is Node3D
 		and sample_treasure.get_node_or_null("TreasureGlow") is OmniLight3D
@@ -1287,22 +1287,16 @@ func _build_bay() -> void:
 	add_child(bay)
 
 	var seabed_material := _underwater_material(Color(0.10, 0.31, 0.34), 0.92, 0.24, 0.78)
-	var shelf_material := _underwater_material(Color(0.14, 0.39, 0.41), 0.88, 0.28, 0.64)
 	var ice_material := _snow_material()
-	var ice_side_material := _material(Color(0.35, 0.62, 0.71), 0.74)
-	ice_side_material.cull_mode = BaseMaterial3D.CULL_DISABLED
+	var ice_side_material := ShaderMaterial.new()
+	ice_side_material.shader = FLOE_ICE_SHADER
+	ice_side_material.set_shader_parameter("frost_normal", SNOW_NORMAL)
 	var cliff_material := _ice_cliff_material()
 	var rock_material := _underwater_material(Color(0.18, 0.36, 0.39), 0.90, 0.20, 0.34)
 	var snow_material := _snow_material()
 
-	_create_cylinder_body(
-		bay,
-		"Seabed",
-		Vector3(0.0, BAY_FLOOR_DEPTH - 0.6, 0.0),
-		BAY_RADIUS + 1.0,
-		1.2,
-		seabed_material
-	)
+	seabed_material.set_shader_parameter("terrain_blend", true)
+	_coast.build(bay,seabed_material,rock_material)
 
 	var random := RandomNumberGenerator.new()
 	random.seed = 742198
@@ -1341,41 +1335,10 @@ func _build_bay() -> void:
 			index
 		)
 
-	var shallows := [
-		[Vector3(-25.0, -10.9, -15.0), 12.0, 5.0],
-		[Vector3(32.0, -11.5, 10.0), 13.0, 4.4],
-		[Vector3(-29.0, -11.8, 27.0), 11.0, 3.8],
-	]
-	for index in shallows.size():
-		var data: Array = shallows[index]
-		_create_cylinder_body(
-			bay,
-			"UnderwaterShelf_%02d" % index,
-			data[0],
-			data[1],
-			data[2],
-			shelf_material
-		)
-
-	for index in 14:
-		var angle := random.randf_range(0.0, TAU)
-		var radius := random.randf_range(15.0, 53.0)
-		var rock_height := random.randf_range(1.2, 4.2)
-		_create_rock_pillar(
-			bay,
-			"UnderwaterRock_%02d" % index,
-			Vector3(
-				cos(angle) * radius,
-				BAY_FLOOR_DEPTH + rock_height * 0.5,
-				sin(angle) * radius
-			),
-			random.randf_range(0.8, 2.6),
-			rock_height,
-			rock_material
-		)
 
 	_create_octopus_cave(bay)
 	_build_underwater_plants(bay, random)
+	_build_water_reflections(bay)
 	_create_water_surface(bay)
 
 
@@ -1398,104 +1361,16 @@ func _create_octopus_cave(parent: Node3D) -> void:
 		0.18,
 		0.82
 	)
-	var lining_material := _underwater_material(
-		Color(0.035, 0.105, 0.14),
-		0.98,
-		0.08,
-		0.62
-	)
-	_create_cave_collision_box(
-		cave,
-		"CaveLeftWall",
-		Vector3(-4.35, -9.25, 4.25),
-		Vector3(2.75, 8.7, 10.5),
-		deg_to_rad(-4.0)
-	)
-	_create_cave_collision_box(
-		cave,
-		"CaveRightWall",
-		Vector3(4.35, -9.25, 4.25),
-		Vector3(2.75, 8.7, 10.5),
-		deg_to_rad(4.0)
-	)
-	_create_cave_collision_box(
-		cave,
-		"CaveRoof",
-		Vector3(0.0, -4.95, 4.20),
-		Vector3(10.7, 2.35, 10.7),
-		0.0
-	)
-	_create_cave_collision_box(
-		cave,
-		"CaveBackWall",
-		Vector3(0.0, -9.30, 9.10),
-		Vector3(10.3, 8.8, 2.4),
-		0.0
-	)
-	_create_cave_lining_mesh(
-		cave,
-		"CaveLeftLining",
-		Vector3(-4.35, -9.25, 5.05),
-		Vector3(2.85, 8.8, 8.8),
-		deg_to_rad(-4.0),
-		lining_material
-	)
-	_create_cave_lining_mesh(
-		cave,
-		"CaveRightLining",
-		Vector3(4.35, -9.25, 5.05),
-		Vector3(2.85, 8.8, 8.8),
-		deg_to_rad(4.0),
-		lining_material
-	)
-	_create_cave_lining_mesh(
-		cave,
-		"CaveRoofLining",
-		Vector3(0.0, -4.95, 5.05),
-		Vector3(10.7, 2.35, 8.8),
-		0.0,
-		lining_material
-	)
-	_create_cave_lining_mesh(
-		cave,
-		"CaveBackLining",
-		Vector3(0.0, -9.30, 9.05),
-		Vector3(10.3, 8.8, 2.3),
-		0.0,
-		lining_material
-	)
-
-	var boulder_data: Array[Array] = [
-		[Vector3(-4.20, -11.65, -0.20), Vector3(3.35, 3.25, 2.90), -0.18],
-		[Vector3(-4.30, -8.90, -0.35), Vector3(3.25, 3.80, 2.85), 0.16],
-		[Vector3(-3.85, -6.45, -0.15), Vector3(3.25, 3.05, 2.75), -0.11],
-		[Vector3(4.15, -11.55, -0.15), Vector3(3.25, 3.35, 2.85), 0.21],
-		[Vector3(4.30, -8.80, -0.30), Vector3(3.20, 3.75, 2.80), -0.16],
-		[Vector3(3.85, -6.35, -0.12), Vector3(3.15, 3.00, 2.75), 0.12],
-		[Vector3(-2.60, -5.10, -0.12), Vector3(3.85, 2.55, 3.05), 0.14],
-		[Vector3(0.0, -4.62, -0.05), Vector3(4.20, 2.35, 3.10), -0.08],
-		[Vector3(2.65, -5.05, -0.10), Vector3(3.80, 2.60, 3.00), 0.18],
-		[Vector3(-4.42, -9.10, 3.25), Vector3(3.00, 4.50, 4.15), 0.24],
-		[Vector3(4.45, -9.10, 3.35), Vector3(3.05, 4.45, 4.10), -0.20],
-		[Vector3(-4.30, -9.05, 7.10), Vector3(3.20, 4.55, 4.00), -0.17],
-		[Vector3(4.28, -9.05, 7.15), Vector3(3.15, 4.50, 4.05), 0.19],
-		[Vector3(-2.65, -5.03, 3.60), Vector3(4.15, 2.45, 3.95), -0.12],
-		[Vector3(2.55, -5.00, 3.70), Vector3(4.05, 2.42, 3.90), 0.13],
-		[Vector3(-2.50, -5.02, 7.15), Vector3(4.30, 2.50, 3.85), 0.10],
-		[Vector3(2.45, -5.00, 7.20), Vector3(4.20, 2.48, 3.80), -0.11],
-		[Vector3(-2.85, -9.20, 9.00), Vector3(4.25, 5.65, 2.90), 0.08],
-		[Vector3(2.75, -9.10, 9.00), Vector3(4.30, 5.70, 2.95), -0.09],
-	]
-	for index in boulder_data.size():
-		var data := boulder_data[index]
-		_create_cave_boulder(
-			cave,
-			"CaveBoulder_%02d" % index,
-			data[0],
-			data[1],
-			float(data[2]),
-			cave_material
-		)
+	NATURAL_CAVE.build(cave,cave_material)
+	cave.add_child(CAVE_SHELTER.new())
+	var rubble_random := RandomNumberGenerator.new()
+	rubble_random.seed=398217
+	for index in 18:
+		var side := -1.0 if index%2==0 else 1.0
+		var size := rubble_random.randf_range(0.35,1.15)
+		_create_cave_boulder(cave,"EntranceRubble_%02d" % index,
+			Vector3(side*rubble_random.randf_range(4.5,8.7),-14.0+size*0.22,rubble_random.randf_range(-4.0,2.0)),
+			Vector3(size*2.0,size,size*1.5),rubble_random.randf_range(0,TAU),cave_material)
 
 	var anchor := Node3D.new()
 	anchor.name = "OctopusHoverAnchor"
@@ -1511,6 +1386,15 @@ func _create_octopus_cave(parent: Node3D) -> void:
 	glow.omni_range = 10.5
 	glow.shadow_enabled = false
 	cave.add_child(glow)
+	# Soft reflected daylight from the mouth lights the animal's front.
+	var entrance_bounce := OmniLight3D.new()
+	entrance_bounce.name = "EntranceBounce"
+	entrance_bounce.position = Vector3(0.0,-8.1,1.2)
+	entrance_bounce.light_color = Color(0.66,0.80,0.85)
+	entrance_bounce.light_energy = 0.70
+	entrance_bounce.omni_range = 8.0
+	entrance_bounce.shadow_enabled = false
+	cave.add_child(entrance_bounce)
 
 	var crystal_material := StandardMaterial3D.new()
 	crystal_material.albedo_color = Color(0.20, 0.60, 0.76)
@@ -1557,44 +1441,6 @@ func _create_octopus_cave(parent: Node3D) -> void:
 	_create_cave_motes(cave)
 
 
-func _create_cave_collision_box(
-	parent: Node3D,
-	node_name: String,
-	position: Vector3,
-	size: Vector3,
-	yaw: float
-) -> void:
-	var body := StaticBody3D.new()
-	body.name = node_name
-	body.position = position
-	body.rotation.y = yaw
-	parent.add_child(body)
-	var collision := CollisionShape3D.new()
-	var shape := BoxShape3D.new()
-	shape.size = size
-	collision.shape = shape
-	body.add_child(collision)
-
-
-func _create_cave_lining_mesh(
-	parent: Node3D,
-	node_name: String,
-	position: Vector3,
-	size: Vector3,
-	yaw: float,
-	material: Material
-) -> void:
-	var lining := MeshInstance3D.new()
-	lining.name = node_name
-	var mesh := BoxMesh.new()
-	mesh.size = size
-	lining.mesh = mesh
-	lining.position = position
-	lining.rotation.y = yaw
-	lining.material_override = material
-	parent.add_child(lining)
-
-
 func _create_cave_boulder(
 	parent: Node3D,
 	node_name: String,
@@ -1605,14 +1451,9 @@ func _create_cave_boulder(
 ) -> void:
 	var boulder := MeshInstance3D.new()
 	boulder.name = node_name
-	var mesh := SphereMesh.new()
-	mesh.radius = 0.5
-	mesh.height = 1.0
-	mesh.radial_segments = 14
-	mesh.rings = 8
-	boulder.mesh = mesh
+	boulder.mesh = _coast.rock_meshes[absi(node_name.hash())%_coast.rock_meshes.size()]
 	boulder.position = position
-	boulder.scale = dimensions
+	boulder.scale = dimensions*0.5
 	boulder.rotation.y = yaw
 	boulder.material_override = material
 	parent.add_child(boulder)
@@ -1805,66 +1646,29 @@ func _build_underwater_plants(parent: Node3D, random: RandomNumberGenerator) -> 
 	var plants_root := Node3D.new()
 	plants_root.name = "UnderwaterPlantGardens"
 	parent.add_child(plants_root)
+	for patch in COLD_SEABED.ROCK_PATCHES:
+		for index in 13:
+			var angle := random.randf_range(0.0,TAU)
+			var radius := sqrt(random.randf())*5.5
+			var p: Vector2 = patch+Vector2(cos(angle),sin(angle))*radius
+			if _coast.is_reserved(p): continue
+			var kind := 0 if index%3 == 0 else 1
+			var scale := random.randf_range(0.60,1.12) if kind == 0 else random.randf_range(0.8,1.65)
+			_spawn_underwater_plant(plants_root,kind,p,_coast.height_at(p.x,p.y)-0.025,scale,random)
 
-	var floor_clusters := [
-		Vector2(-8.0, -7.0),
-		Vector2(18.0, 15.0),
-		Vector2(-18.0, 22.0),
-		Vector2(30.0, -13.0),
-		Vector2(-35.0, -28.0),
-		Vector2(7.0, 34.0),
-	]
-	var plant_index := 0
-	for cluster_index in floor_clusters.size():
-		var center: Vector2 = floor_clusters[cluster_index]
-		for local_index in 4:
-			var angle := random.randf_range(0.0, TAU)
-			var radius := random.randf_range(1.4, 5.8)
-			var plant_position := center + Vector2(cos(angle), sin(angle)) * radius
-			var plant_kind := posmod(plant_index + cluster_index, 2)
-			var plant_scale := (
-				random.randf_range(1.35, 2.10)
-				if plant_kind == 0
-				else random.randf_range(1.80, 3.00)
-			)
-			_spawn_underwater_plant(
-				plants_root,
-				plant_kind,
-				plant_position,
-				BAY_FLOOR_DEPTH + 0.06,
-				plant_scale,
-				random
-			)
-			plant_index += 1
+	_settle_coastal_plants.call_deferred(plants_root)
 
-	var shelf_clusters := [
-		[Vector2(-25.0, -15.0), -8.35],
-		[Vector2(32.0, 10.0), -9.25],
-		[Vector2(-29.0, 27.0), -9.85],
-	]
-	for cluster_index in shelf_clusters.size():
-		var cluster: Array = shelf_clusters[cluster_index]
-		var center: Vector2 = cluster[0]
-		var base_height: float = cluster[1]
-		for local_index in 5:
-			var angle := random.randf_range(0.0, TAU)
-			var radius := random.randf_range(1.2, 4.6)
-			var plant_position := center + Vector2(cos(angle), sin(angle)) * radius
-			var plant_kind := posmod(plant_index + local_index, 2)
-			var plant_scale := (
-				random.randf_range(0.82, 1.30)
-				if plant_kind == 0
-				else random.randf_range(1.25, 2.10)
-			)
-			_spawn_underwater_plant(
-				plants_root,
-				plant_kind,
-				plant_position,
-				base_height,
-				plant_scale,
-				random
-			)
-			plant_index += 1
+
+func _settle_coastal_plants(plants_root: Node3D) -> void:
+	# Physics synchronizes the freshly built terrain and boulders on the next tick.
+	await get_tree().physics_frame
+	await get_tree().physics_frame
+	for plant in plants_root.get_children():
+		var p: Vector3 = plant.global_position
+		var ray := PhysicsRayQueryParameters3D.create(Vector3(p.x,-5.0,p.z),Vector3(p.x,-18.0,p.z),1)
+		var hit := get_world_3d().direct_space_state.intersect_ray(ray)
+		if not hit.is_empty():
+			plant.global_position.y = hit.position.y-0.025
 
 
 func _spawn_underwater_plant(
@@ -1875,9 +1679,14 @@ func _spawn_underwater_plant(
 	plant_scale: float,
 	random: RandomNumberGenerator
 ) -> void:
-	var plant_scene := KELP_SCENE if plant_kind == 0 else SEAWEED_SCENE
-	var plant := plant_scene.instantiate() as Node3D
-	var base_offset := 1.115 if plant_kind == 0 else 0.340
+	if _kelp_meshes.is_empty():
+		_kelp_meshes = [COLD_KELP.build_mesh(0),COLD_KELP.build_mesh(1)]
+	var plant := Node3D.new()
+	var blade_mesh := MeshInstance3D.new()
+	blade_mesh.mesh = _kelp_meshes[plant_kind]
+	blade_mesh.extra_cull_margin = 1.5
+	plant.add_child(blade_mesh)
+	var base_offset := 0.0
 	plant.name = "%s_%02d" % [
 		"Kelp" if plant_kind == 0 else "Seaweed",
 		get_tree().get_node_count_in_group("underwater_plant"),
@@ -1892,18 +1701,10 @@ func _spawn_underwater_plant(
 	parent.add_child(plant)
 	plant.add_to_group("underwater_plant")
 
-	var cold_tint := (
-		Color(
-			random.randf_range(0.06, 0.11),
-			random.randf_range(0.48, 0.61),
-			random.randf_range(0.38, 0.52)
-		)
-		if plant_kind == 0
-		else Color(
-			random.randf_range(0.08, 0.16),
-			random.randf_range(0.54, 0.69),
-			random.randf_range(0.43, 0.58)
-		)
+	var cold_tint := Color(
+		random.randf_range(0.19,0.32),
+		random.randf_range(0.23,0.32),
+		random.randf_range(0.075,0.14)
 	)
 	_prepare_plant_meshes(
 		plant,
@@ -1964,7 +1765,7 @@ func _get_plant_material(
 
 	var shader_material := ShaderMaterial.new()
 	shader_material.shader = UNDERWATER_PLANT_SHADER
-	var base_color := Color(0.16, 0.57, 0.36)
+	var base_color := Color(0.28, 0.29, 0.12)
 	var albedo_texture: Texture2D
 	if source_material is StandardMaterial3D:
 		var standard_material := source_material as StandardMaterial3D
@@ -1974,9 +1775,9 @@ func _get_plant_material(
 	shader_material.set_shader_parameter("has_albedo_texture", is_instance_valid(albedo_texture))
 	if is_instance_valid(albedo_texture):
 		shader_material.set_shader_parameter("albedo_texture", albedo_texture)
-	shader_material.set_shader_parameter("blade_base", -1.115 if plant_kind == 0 else -0.340)
-	shader_material.set_shader_parameter("blade_height", 2.30 if plant_kind == 0 else 0.82)
-	shader_material.set_shader_parameter("tint_amount", 0.16 if plant_kind == 0 else 0.22)
+	shader_material.set_shader_parameter("blade_base", 0.0)
+	shader_material.set_shader_parameter("blade_height", 2.30 if plant_kind == 0 else 0.85)
+	shader_material.set_shader_parameter("tint_amount", 0.72)
 	shader_material.set_shader_parameter("interaction_radius", 4.6)
 	shader_material.set_shader_parameter("wake_length", 5.4)
 	_plant_material_cache[cache_key] = shader_material
@@ -2041,11 +1842,34 @@ func _create_water_surface(parent: Node3D) -> void:
 	plane.subdivide_depth = 208
 	surface.mesh = plane
 	surface.position.y = WATER_LEVEL
+	surface.extra_cull_margin = 0.6
+	surface.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	surface.set_layer_mask_value(3, true)
 	_water_material = ShaderMaterial.new()
 	_water_material.shader = WATER_SHADER
+	_water_material.set_shader_parameter("ripple_normal", WATER_RIPPLE_NORMAL)
 	_water_material.set_shader_parameter("sun_direction", _sun_direction)
 	surface.material_override = _water_material
 	parent.add_child(surface)
+
+
+func _build_water_reflections(bay: Node3D) -> void:
+	# Capture only the static environment, excluding the water and moving actors.
+	# Layer 3 restricts the result to water, preserving character lighting.
+	for mesh in bay.find_children("*", "MeshInstance3D", true, false):
+		mesh.set_layer_mask_value(2, true)
+	var probe := ReflectionProbe.new()
+	probe.name = "BayWaterReflection"
+	probe.position = Vector3(0.0, 1.0, 0.0)
+	probe.size = Vector3(144.0, 50.0, 144.0)
+	probe.max_distance = 160.0
+	probe.cull_mask = 2
+	probe.reflection_mask = 4
+	probe.box_projection = true
+	probe.ambient_mode = ReflectionProbe.AMBIENT_DISABLED
+	probe.update_mode = ReflectionProbe.UPDATE_ONCE
+	probe.enable_shadows = true
+	bay.add_child(probe)
 
 
 func _create_cliff_segment(
@@ -2104,42 +1928,6 @@ func _create_cliff_segment(
 		body.add_child(snow_cap)
 
 
-func _create_rock_pillar(
-	parent: Node3D,
-	node_name: String,
-	position: Vector3,
-	radius: float,
-	height: float,
-	material: Material
-) -> void:
-	var body := StaticBody3D.new()
-	body.name = node_name
-	body.position = position
-	body.rotation_degrees = Vector3(
-		randf_range(-5.0, 5.0),
-		randf_range(0.0, 180.0),
-		randf_range(-5.0, 5.0)
-	)
-	parent.add_child(body)
-
-	var mesh_instance := MeshInstance3D.new()
-	var mesh := CylinderMesh.new()
-	mesh.top_radius = radius * 0.72
-	mesh.bottom_radius = radius
-	mesh.height = height
-	mesh.radial_segments = 7
-	mesh_instance.mesh = mesh
-	mesh_instance.material_override = material
-	body.add_child(mesh_instance)
-
-	var collision := CollisionShape3D.new()
-	var shape := CylinderShape3D.new()
-	shape.radius = radius * 0.88
-	shape.height = height
-	collision.shape = shape
-	body.add_child(collision)
-
-
 func _create_ice_floe(
 	parent: Node3D,
 	node_name: String,
@@ -2157,22 +1945,15 @@ func _create_ice_floe(
 	body.rotation.y = randf_range(-0.35, 0.35)
 	parent.add_child(body)
 
-	var outline := _make_floe_outline(radius, style_index)
+	var profile = SCULPTED_ICE.new(radius,height,style_index)
+	body.set_meta("ice_profile",profile)
 	var mesh_instance := MeshInstance3D.new()
-	mesh_instance.name = "IrregularIceBody"
-	mesh_instance.mesh = _make_irregular_floe_mesh(
-		outline,
-		height,
-		top_material,
-		side_material
-	)
+	mesh_instance.name="IrregularIceBody"
+	mesh_instance.mesh=profile.build_mesh(top_material,side_material)
 	body.add_child(mesh_instance)
-
 	var collision := CollisionShape3D.new()
-	var shape := CylinderShape3D.new()
-	shape.radius = radius * 0.92
-	shape.height = height
-	collision.shape = shape
+	collision.name="IceCollision"
+	collision.shape=mesh_instance.mesh.create_trimesh_shape()
 	body.add_child(collision)
 
 	for exit_index in 4:
@@ -2185,122 +1966,6 @@ func _create_ice_floe(
 			WATER_LEVEL
 		)
 		exit_zone.name = "ClimbZone_%02d" % exit_index
-
-
-func _make_floe_outline(radius: float, style_index: int) -> Array[Vector2]:
-	var outline: Array[Vector2] = []
-	var random := RandomNumberGenerator.new()
-	random.seed = 80421 + style_index * 9173
-	var point_count := 24
-	var phase := float(style_index) * 0.83 + 0.27
-	for point_index in point_count:
-		var angle := TAU * float(point_index) / float(point_count)
-		var irregularity := (
-			1.0
-			+ sin(angle * 3.0 + phase) * 0.055
-			+ sin(angle * 5.0 - phase * 1.4) * 0.035
-			+ random.randf_range(-0.022, 0.022)
-		)
-		var point_radius := radius * irregularity
-		outline.append(
-			Vector2(cos(angle), sin(angle)) * point_radius
-		)
-	return outline
-
-
-func _make_irregular_floe_mesh(
-	outline: Array[Vector2],
-	height: float,
-	top_material: Material,
-	side_material: Material
-) -> ArrayMesh:
-	var mesh := ArrayMesh.new()
-	var top_y := height * 0.5 + 0.055
-	var bottom_y := -height * 0.5
-
-	var top_surface := SurfaceTool.new()
-	top_surface.begin(Mesh.PRIMITIVE_TRIANGLES)
-	for index in outline.size():
-		var current := outline[index]
-		var next := outline[(index + 1) % outline.size()]
-		for vertex_data in [
-			[Vector3.ZERO + Vector3.UP * top_y, Vector2(0.5, 0.5)],
-			[
-				Vector3(current.x, top_y, current.y),
-				Vector2(0.5 + current.x * 0.055, 0.5 + current.y * 0.055),
-			],
-			[
-				Vector3(next.x, top_y, next.y),
-				Vector2(0.5 + next.x * 0.055, 0.5 + next.y * 0.055),
-			],
-		]:
-			top_surface.set_normal(Vector3.UP)
-			top_surface.set_uv(vertex_data[1])
-			top_surface.add_vertex(vertex_data[0])
-	top_surface.commit(mesh)
-	mesh.surface_set_material(0, top_material)
-
-	var side_surface := SurfaceTool.new()
-	side_surface.begin(Mesh.PRIMITIVE_TRIANGLES)
-	for index in outline.size():
-		var current := outline[index]
-		var next := outline[(index + 1) % outline.size()]
-		var current_bottom := current * 0.83
-		var next_bottom := next * 0.83
-		var top_current := Vector3(current.x, top_y, current.y)
-		var top_next := Vector3(next.x, top_y, next.y)
-		var bottom_current := Vector3(current_bottom.x, bottom_y, current_bottom.y)
-		var bottom_next := Vector3(next_bottom.x, bottom_y, next_bottom.y)
-		for vertex in [
-			top_current,
-			top_next,
-			bottom_current,
-			top_next,
-			bottom_next,
-			bottom_current,
-		]:
-			side_surface.add_vertex(vertex)
-		for bottom_vertex in [
-			Vector3(0.0, bottom_y, 0.0),
-			bottom_next,
-			bottom_current,
-		]:
-			side_surface.add_vertex(bottom_vertex)
-	side_surface.generate_normals()
-	side_surface.commit(mesh)
-	mesh.surface_set_material(1, side_material)
-	return mesh
-
-
-func _create_cylinder_body(
-	parent: Node3D,
-	node_name: String,
-	position: Vector3,
-	radius: float,
-	height: float,
-	material: Material
-) -> void:
-	var body := StaticBody3D.new()
-	body.name = node_name
-	body.position = position
-	parent.add_child(body)
-
-	var mesh_instance := MeshInstance3D.new()
-	var mesh := CylinderMesh.new()
-	mesh.top_radius = radius
-	mesh.bottom_radius = radius
-	mesh.height = height
-	mesh.radial_segments = 48
-	mesh_instance.mesh = mesh
-	mesh_instance.material_override = material
-	body.add_child(mesh_instance)
-
-	var collision := CollisionShape3D.new()
-	var shape := CylinderShape3D.new()
-	shape.radius = radius
-	shape.height = height
-	collision.shape = shape
-	body.add_child(collision)
 
 
 func _create_box_body(
@@ -2470,25 +2135,12 @@ func _build_ambient_life() -> void:
 		school.add_to_group("ambient_fish_school")
 		school.configure(data[0], data[1], 13, data[2])
 
-	var crab_routes := [
-		[
-			Vector3(-44.0, BAY_FLOOR_DEPTH + 0.72, -38.0),
-			Vector3(-21.0, BAY_FLOOR_DEPTH + 0.72, -49.0),
-			Vector3(7.0, BAY_FLOOR_DEPTH + 0.72, -48.0),
-			Vector3(30.0, BAY_FLOOR_DEPTH + 0.72, -38.0),
-			Vector3(45.0, BAY_FLOOR_DEPTH + 0.72, -19.0),
-			Vector3(50.0, BAY_FLOOR_DEPTH + 0.72, 4.0),
-		],
-		[
-			Vector3(-49.0, BAY_FLOOR_DEPTH + 0.72, 8.0),
-			Vector3(-44.0, BAY_FLOOR_DEPTH + 0.72, 27.0),
-			Vector3(-28.0, BAY_FLOOR_DEPTH + 0.72, 44.0),
-			Vector3(-4.0, BAY_FLOOR_DEPTH + 0.72, 50.0),
-			Vector3(20.0, BAY_FLOOR_DEPTH + 0.72, 46.0),
-			Vector3(10.0, BAY_FLOOR_DEPTH + 0.72, 56.0),
-			Vector3(-18.0, BAY_FLOOR_DEPTH + 0.72, 53.0),
-		],
-	]
+	var crab_routes: Array[Array] = []
+	for route in COLD_SEABED.CRAB_ROUTES:
+		var points: Array = []
+		for point in route:
+			points.append(Vector3(point.x,_coast.height_at(point.x,point.y)+0.72,point.y))
+		crab_routes.append(points)
 	for index in crab_routes.size():
 		var crab := AmbientCrab.new()
 		crab.name = "WanderingCrab_%02d" % index
@@ -2497,7 +2149,8 @@ func _build_ambient_life() -> void:
 		crab.configure(
 			crab_routes[index],
 			0.54 + float(index) * 0.06,
-			_flaki
+			_flaki,
+			_coast.height_at
 		)
 		crab.dance_started.connect(_on_crab_danced_for_achievement)
 		_flaki.voice_played.connect(crab.on_flaki_voice)
@@ -2818,7 +2471,7 @@ func _refresh_context_prompt() -> void:
 		if not _ice_prompt_text.is_empty()
 		else _fish_prompt_text
 	)
-	_catch_prompt_label.text = prompt_key
+	_catch_prompt_label.text = "PROMPT_CAVE_SAFE" if _in_cave_shelter else prompt_key
 
 
 func _on_fish_objective_completed() -> void:
@@ -2980,6 +2633,12 @@ func _underwater_material(
 	material.set_shader_parameter("seabed_roughness", SEABED_ROUGHNESS)
 	material.set_shader_parameter("seabed_displacement", SEABED_DISPLACEMENT)
 	material.set_shader_parameter("texture_strength", texture_strength)
+	material.set_shader_parameter("sand_diffuse", COAST_SAND_DIFFUSE)
+	material.set_shader_parameter("sand_normal", COAST_SAND_NORMAL)
+	material.set_shader_parameter("sand_roughness", COAST_SAND_ROUGHNESS)
+	material.set_shader_parameter("rock_diffuse", COAST_ROCK_DIFFUSE)
+	material.set_shader_parameter("rock_normal", COAST_ROCK_NORMAL)
+	material.set_shader_parameter("rock_roughness", COAST_ROCK_ROUGHNESS)
 	return material
 
 

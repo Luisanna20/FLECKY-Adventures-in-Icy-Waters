@@ -89,8 +89,12 @@ void fragment() {
 		source *= texture(albedo_texture, UV);
 	}
 	vec3 cold_color = mix(source.rgb, plant_tint.rgb, tint_amount);
+	float vein = exp(-abs(UV.x-0.5)*65.0);
+	float fibers = sin(UV.y*180.0+sin(UV.x*35.0))*0.018;
+	cold_color *= 0.87+fibers+vein*0.12;
+	if (!FRONT_FACING) { NORMAL = -NORMAL; }
 	ALBEDO = cold_color;
 	ROUGHNESS = 0.76;
 	SPECULAR = 0.28;
-	EMISSION = cold_color * 0.075;
+	EMISSION = cold_color * 0.012;
 }

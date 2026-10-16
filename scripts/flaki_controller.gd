@@ -31,7 +31,7 @@ const BREACH_MIN_SPEED := 3.8
 const BREACH_CHARGE_TIME := 0.22
 const BREACH_UP_SPEED := 4.65
 const BREACH_GRAVITY := 8.9
-const WHISKER_LENGTH := 0.34
+const SEAL_MODEL = preload("res://scripts/flaki_model.gd")
 const LEFT_FLIPPER_SWIM_POSITION := Vector3(-0.48, -0.07, -0.18)
 const RIGHT_FLIPPER_SWIM_POSITION := Vector3(0.48, -0.07, -0.18)
 const LEFT_FLIPPER_ICE_POSITION := Vector3(-0.46, -0.30, -0.15)
@@ -54,6 +54,7 @@ var _whiskers: Array[MeshInstance3D] = []
 var _whisker_base_quaternions: Array[Quaternion] = []
 var _current_state := ""
 var _movement_strength := 0.0
+var _swim_phase := 0.0
 var _voice_player: AudioStreamPlayer3D
 var _movement_mode := MovementMode.SWIMMING
 var _safe_floe: Node3D
@@ -73,7 +74,7 @@ var _menu_idle_active := false
 func _ready() -> void:
 	add_to_group("player")
 	_build_collision()
-	_build_temporary_flaki()
+	_build_flaki_model()
 	_build_voice()
 	_set_state("STATE_SURFACE")
 
@@ -204,7 +205,14 @@ func is_on_ice() -> bool:
 
 
 func is_safe_from_shark() -> bool:
-	return is_on_ice()
+	return is_on_ice() or get_cave_shelter() != null
+
+
+func get_cave_shelter() -> Node3D:
+	for shelter in get_tree().get_nodes_in_group("shark_shelter"):
+		if shelter.contains_point(global_position):
+			return shelter
+	return null
 
 
 func begin_on_ice(start_position: Vector3, safe_floe: Node3D) -> void:
@@ -557,8 +565,9 @@ func _animate_body(delta: float, vertical_input: float) -> void:
 	var stroke_speed := lerpf(2.2, 9.4, _movement_strength)
 	if _boosting_visual:
 		stroke_speed *= 1.25
-	var stroke := sin(time * stroke_speed)
-	var amplitude := lerpf(0.07, 0.54, _movement_strength)
+	_swim_phase = fmod(_swim_phase + delta * stroke_speed, TAU)
+	var stroke := sin(_swim_phase)
+	var amplitude := lerpf(0.035, 0.20, _movement_strength)
 	if _boosting_visual:
 		amplitude *= 1.16
 	var pose_weight := minf(delta * 7.0, 1.0)
@@ -576,8 +585,8 @@ func _animate_body(delta: float, vertical_input: float) -> void:
 	_right_flipper.rotation.y = lerpf(_right_flipper.rotation.y, deg_to_rad(8.0), pose_weight)
 	_left_flipper.rotation.z = -0.34 + stroke * amplitude
 	_right_flipper.rotation.z = 0.34 - stroke * amplitude
-	_tail_left.rotation.y = -0.30 + stroke * amplitude * 0.72
-	_tail_right.rotation.y = 0.30 + stroke * amplitude * 0.72
+	_tail_left.rotation.y = -0.18 + stroke * lerpf(0.04, 0.48, _movement_strength)
+	_tail_right.rotation.y = 0.18 + stroke * lerpf(0.04, 0.48, _movement_strength)
 	_visual_root.position.y = lerpf(
 		_visual_root.position.y,
 		sin(time * 2.0) * 0.035,
@@ -780,13 +789,13 @@ func _animate_face(delta: float) -> void:
 	if is_instance_valid(_left_eye):
 		_left_eye.scale.y = lerpf(
 			_left_eye.scale.y,
-			0.13 * blink_scale,
+			0.118 * blink_scale,
 			minf(delta * 24.0, 1.0)
 		)
 	if is_instance_valid(_right_eye):
 		_right_eye.scale.y = lerpf(
 			_right_eye.scale.y,
-			0.13 * blink_scale,
+			0.118 * blink_scale,
 			minf(delta * 24.0, 1.0)
 		)
 	if is_instance_valid(_mouth):
@@ -796,6 +805,8 @@ func _animate_face(delta: float) -> void:
 			0.055 * mouth_open,
 			minf(delta * 18.0, 1.0)
 		)
+
+	_visual_root.update_pose(_movement_strength if is_swimming() else 0.0, _swim_phase)
 
 
 func _build_collision() -> void:
@@ -819,222 +830,20 @@ func _build_voice() -> void:
 	add_child(_voice_player)
 
 
-func _build_temporary_flaki() -> void:
-	_visual_root = Node3D.new()
-	_visual_root.name = "FlakiModel"
-	add_child(_visual_root)
-
-	var white_fur := _material(Color(0.83, 0.91, 0.96), 0.82)
-	var face_fur := _material(Color(0.90, 0.96, 0.99), 0.78)
-	var belly_fur := _material(Color(0.70, 0.82, 0.89), 0.86)
-	var spot_fur := _material(Color(0.58, 0.72, 0.80), 0.88)
-	var charcoal := _material(Color(0.018, 0.027, 0.035), 0.20)
-	var whisker_grey := _material(Color(0.23, 0.32, 0.37), 0.58)
-	var eye_glint := _material(Color(0.96, 1.0, 1.0), 0.12)
-
-	_visual_root.add_child(
-		_make_ellipsoid(
-			"Body",
-			Vector3(0.0, 0.0, 0.10),
-			Vector3(1.12, 0.76, 2.12),
-			white_fur
-		)
-	)
-	var spot_data: Array[Array] = [
-		[Vector3(-0.31, 0.35, 0.12), Vector3(0.16, 0.035, 0.22), -0.18],
-		[Vector3(0.28, 0.34, 0.38), Vector3(0.13, 0.032, 0.18), 0.30],
-		[Vector3(-0.18, 0.33, 0.68), Vector3(0.11, 0.030, 0.15), 0.42],
-		[Vector3(0.22, 0.35, -0.22), Vector3(0.10, 0.028, 0.14), -0.36],
-	]
-	for spot_index in spot_data.size():
-		var spot := _make_ellipsoid(
-			"FurSpot%d" % spot_index,
-			spot_data[spot_index][0],
-			spot_data[spot_index][1],
-			spot_fur
-		)
-		spot.rotation.y = spot_data[spot_index][2]
-		_visual_root.add_child(spot)
-
-	_head_root = Node3D.new()
-	_head_root.name = "Head"
-	_head_root.position = Vector3(0.0, 0.12, -0.82)
-	_visual_root.add_child(_head_root)
-	_head_root.add_child(
-		_make_ellipsoid("HeadShape", Vector3.ZERO, Vector3(0.88, 0.72, 0.80), white_fur)
-	)
-	_head_root.add_child(
-		_make_ellipsoid(
-			"LeftCheek",
-			Vector3(-0.17, -0.08, -0.35),
-			Vector3(0.39, 0.29, 0.34),
-			face_fur
-		)
-	)
-	_head_root.add_child(
-		_make_ellipsoid(
-			"RightCheek",
-			Vector3(0.17, -0.08, -0.35),
-			Vector3(0.39, 0.29, 0.34),
-			face_fur
-		)
-	)
-
-	var nose := _make_ellipsoid(
-		"Nose",
-		Vector3(0.0, 0.0, -0.50),
-		Vector3(0.19, 0.12, 0.13),
-		charcoal
-	)
-	_head_root.add_child(nose)
-	_mouth = _make_ellipsoid(
-		"Mouth",
-		Vector3(0.0, -0.11, -0.505),
-		Vector3(0.13, 0.055, 0.035),
-		charcoal
-	)
-	_mouth.scale.y = 0.055 * 0.34
-	_head_root.add_child(_mouth)
-
-	for eye_side in [-1.0, 1.0]:
-		var eye := _make_ellipsoid(
-			"EyeLeft" if eye_side < 0.0 else "EyeRight",
-			Vector3(0.19 * eye_side, 0.16, -0.35),
-			Vector3(0.12, 0.13, 0.075),
-			charcoal
-		)
-		_head_root.add_child(eye)
-		if eye_side < 0.0:
-			_left_eye = eye
-		else:
-			_right_eye = eye
-		var glint := _make_ellipsoid(
-			"EyeGlintLeft" if eye_side < 0.0 else "EyeGlintRight",
-			Vector3(0.215 * eye_side, 0.192, -0.391),
-			Vector3(0.032, 0.036, 0.020),
-			eye_glint
-		)
-		_head_root.add_child(glint)
-
-	for whisker_side in [-1.0, 1.0]:
-		for whisker_index in 3:
-			var whisker := _make_whisker(
-				"Whisker_%s_%d"
-				% ["Left" if whisker_side < 0.0 else "Right", whisker_index],
-				whisker_grey
-			)
-			var root := Vector3(
-				0.29 * whisker_side,
-				-0.13 + whisker_index * 0.05,
-				-0.47
-			)
-			var vertical_spread := -0.24 + whisker_index * 0.24
-			var direction := Vector3(
-				0.97 * whisker_side,
-				vertical_spread,
-				-0.10
-			).normalized()
-			whisker.position = root + direction * WHISKER_LENGTH * 0.5
-			whisker.quaternion = Quaternion(Vector3.UP, direction)
-			_head_root.add_child(whisker)
-			_whiskers.append(whisker)
-			_whisker_base_quaternions.append(whisker.quaternion)
-
-	_left_flipper = _make_flipper("LeftFlipper", -1.0, belly_fur)
+func _build_flaki_model() -> void:
+	var model := SEAL_MODEL.new()
+	_visual_root = model
+	add_child(model)
+	_head_root = model.head
+	_left_flipper = model.left_flipper
+	_right_flipper = model.right_flipper
+	_tail_left = model.tail_left
+	_tail_right = model.tail_right
+	_left_eye = model.left_eye
+	_right_eye = model.right_eye
+	_mouth = model.mouth
+	_whiskers = model.whiskers
+	for whisker in _whiskers:
+		_whisker_base_quaternions.append(whisker.quaternion)
 	_left_flipper.position = LEFT_FLIPPER_SWIM_POSITION
-	_left_flipper.rotation_degrees = Vector3(7.0, -8.0, -20.0)
-	_visual_root.add_child(_left_flipper)
-
-	_right_flipper = _make_flipper("RightFlipper", 1.0, belly_fur)
 	_right_flipper.position = RIGHT_FLIPPER_SWIM_POSITION
-	_right_flipper.rotation_degrees = Vector3(-7.0, 8.0, 20.0)
-	_visual_root.add_child(_right_flipper)
-
-	_tail_left = _make_tail("TailLeft", -1.0, belly_fur)
-	_tail_left.position = Vector3(-0.12, 0.0, 1.00)
-	_tail_left.rotation_degrees.y = -18.0
-	_visual_root.add_child(_tail_left)
-
-	_tail_right = _make_tail("TailRight", 1.0, belly_fur)
-	_tail_right.position = Vector3(0.12, 0.0, 1.00)
-	_tail_right.rotation_degrees.y = 18.0
-	_visual_root.add_child(_tail_right)
-
-
-func _make_flipper(
-	node_name: String,
-	side: float,
-	material: StandardMaterial3D
-) -> Node3D:
-	var pivot := Node3D.new()
-	pivot.name = node_name
-	var flipper := _make_ellipsoid(
-		"Shape",
-		Vector3(0.27 * side, 0.0, 0.0),
-		Vector3(0.68, 0.13, 0.33),
-		material
-	)
-	flipper.rotation_degrees.y = 10.0 * side
-	pivot.add_child(flipper)
-	return pivot
-
-
-func _make_tail(
-	node_name: String,
-	side: float,
-	material: StandardMaterial3D
-) -> Node3D:
-	var pivot := Node3D.new()
-	pivot.name = node_name
-	var tail := _make_ellipsoid(
-		"Shape",
-		Vector3(0.17 * side, 0.0, 0.22),
-		Vector3(0.45, 0.14, 0.58),
-		material
-	)
-	tail.rotation_degrees.y = 12.0 * side
-	pivot.add_child(tail)
-	return pivot
-
-
-func _make_ellipsoid(
-	node_name: String,
-	node_position: Vector3,
-	dimensions: Vector3,
-	material: StandardMaterial3D
-) -> MeshInstance3D:
-	var shape := MeshInstance3D.new()
-	shape.name = node_name
-	var mesh := SphereMesh.new()
-	mesh.radius = 0.5
-	mesh.height = 1.0
-	mesh.radial_segments = 32
-	mesh.rings = 16
-	shape.mesh = mesh
-	shape.position = node_position
-	shape.scale = dimensions
-	shape.material_override = material
-	return shape
-
-
-func _make_whisker(
-	node_name: String,
-	material: StandardMaterial3D
-) -> MeshInstance3D:
-	var whisker := MeshInstance3D.new()
-	whisker.name = node_name
-	var mesh := CylinderMesh.new()
-	mesh.top_radius = 0.004
-	mesh.bottom_radius = 0.007
-	mesh.height = WHISKER_LENGTH
-	mesh.radial_segments = 8
-	whisker.mesh = mesh
-	whisker.material_override = material
-	return whisker
-
-
-func _material(color: Color, roughness: float) -> StandardMaterial3D:
-	var material := StandardMaterial3D.new()
-	material.albedo_color = color
-	material.roughness = roughness
-	return material

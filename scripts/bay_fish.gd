@@ -4,6 +4,7 @@ extends CharacterBody3D
 const TUNA_SCENE := preload("res://assets/models/quaternius/tuna.glb")
 const RED_SNAPPER_SCENE := preload("res://assets/models/quaternius/red_snapper.glb")
 const CARDINAL_FISH_SCENE := preload("res://assets/models/quaternius/cardinal_fish.glb")
+const APPEARANCE := preload("res://scripts/fish_appearance.gd")
 const FISH_SCENES := [TUNA_SCENE, RED_SNAPPER_SCENE, CARDINAL_FISH_SCENE]
 const FISH_MODEL_NAMES := ["Tuna", "RedSnapper", "CardinalFish"]
 const SWIM_NORMAL := &"Fish_Armature|Swimming_Normal"
@@ -229,7 +230,7 @@ func _animate_tail() -> void:
 		_tail_right.rotation.y = 0.30 + stroke * 0.48
 
 
-func _build_fish(tint: Color, selected_species: int) -> void:
+func _build_fish(_tint: Color, selected_species: int) -> void:
 	_visual_root = Node3D.new()
 	_visual_root.name = "FishVisual"
 	add_child(_visual_root)
@@ -241,32 +242,13 @@ func _build_fish(tint: Color, selected_species: int) -> void:
 	imported_model.rotation_degrees.y = 180.0
 	_visual_root.add_child(imported_model)
 	_animation_player = imported_model.find_child("AnimationPlayer", true, false) as AnimationPlayer
-	_make_model_readable(imported_model, tint)
+	APPEARANCE.apply(imported_model, selected_species)
 	if is_instance_valid(_animation_player):
 		for animation_name in [SWIM_NORMAL, SWIM_FAST]:
 			var animation := _animation_player.get_animation(animation_name)
 			if animation != null:
 				animation.loop_mode = Animation.LOOP_LINEAR
 		_animation_player.play(SWIM_NORMAL)
-
-
-func _make_model_readable(node: Node, tint: Color) -> void:
-	if node is MeshInstance3D:
-		var mesh_instance := node as MeshInstance3D
-		mesh_instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		for surface_index in mesh_instance.get_surface_override_material_count():
-			var source := mesh_instance.get_active_material(surface_index)
-			if source is StandardMaterial3D:
-				var material := source.duplicate() as StandardMaterial3D
-				if material.albedo_color.get_luminance() > 0.12:
-					material.albedo_color = material.albedo_color.lightened(0.16).lerp(tint, 0.14)
-					material.emission_enabled = true
-					material.emission = material.albedo_color.darkened(0.10)
-					material.emission_texture = material.albedo_texture
-					material.emission_energy_multiplier = 0.68
-				mesh_instance.set_surface_override_material(surface_index, material)
-	for child in node.get_children():
-		_make_model_readable(child, tint)
 
 
 func _make_fin(

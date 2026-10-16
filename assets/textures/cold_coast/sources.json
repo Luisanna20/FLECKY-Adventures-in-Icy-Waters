@@ -1,0 +1,38 @@
+[
+  {
+    "file": "coast_sand_02_diff_2k.jpg",
+    "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/coast_sand_02/coast_sand_02_diff_2k.jpg",
+    "bytes": 3381179,
+    "sha256": "3dba77f23cecaa8ab16889fe9b30f2018a24f2afb002d1c046143b9a5e097946"
+  },
+  {
+    "file": "coast_sand_02_nor_gl_2k.jpg",
+    "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/coast_sand_02/coast_sand_02_nor_gl_2k.jpg",
+    "bytes": 4376434,
+    "sha256": "abe4db0d3dd5a5166550905e54bb0ee94d7c3e8e1e5e25116b1042a2748874a3"
+  },
+  {
+    "file": "coast_sand_02_rough_1k.jpg",
+    "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/coast_sand_02/coast_sand_02_rough_1k.jpg",
+    "bytes": 479959,
+    "sha256": "f2b99b9f81c7bd467107f61551ab6517cfa090efcdb10cc19bc2fc4ea347fd7f"
+  },
+  {
+    "file": "rock_boulder_dry_diff_2k.jpg",
+    "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/rock_boulder_dry/rock_boulder_dry_diff_2k.jpg",
+    "bytes": 3437626,
+    "sha256": "c66de7f7b48ef1ba542c17af780787ca6d43da2160a46ff3544dd9fcdf65ca30"
+  },
+  {
+    "file": "rock_boulder_dry_nor_gl_2k.jpg",
+    "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/rock_boulder_dry/rock_boulder_dry_nor_gl_2k.jpg",
+    "bytes": 3307320,
+    "sha256": "72a3c96d563fc17ac36c568802e106222e6480512d98e07318e1f431cea33dd6"
+  },
+  {
+    "file": "rock_boulder_dry_rough_1k.jpg",
+    "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/rock_boulder_dry/rock_boulder_dry_rough_1k.jpg",
+    "bytes": 668127,
+    "sha256": "cc5229dd6bbdc4e817cb647e60242224b8e4f0237473ac018861ea243f2e8130"
+  }
+]

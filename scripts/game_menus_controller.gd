@@ -274,7 +274,7 @@ func _build_main_menu() -> void:
 	_main_content.add_child(
 		_make_title("GAME_SUBTITLE", 18, Color(0.62, 0.91, 0.98))
 	)
-	var version := str(ProjectSettings.get_setting("application/config/version", "0.2.0"))
+	var version := str(ProjectSettings.get_setting("application/config/version", "0.3.0"))
 	_main_content.add_child(
 		_make_title("DEMO v%s" % version, 12, Color(0.98, 0.89, 0.51))
 	)

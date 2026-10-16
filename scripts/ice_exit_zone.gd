@@ -40,10 +40,11 @@ func configure(
 
 func get_landing_position() -> Vector3:
 	var floe := get_parent() as Node3D
-	var landing := floe.to_global(
-		_exit_direction * floe_radius * 0.68
-		+ Vector3.UP * (floe_height * 0.5 + 0.54)
-	)
+	var local_point := _exit_direction*floe_radius*0.68
+	var surface_y := floe_height*0.5+0.055
+	if floe.has_meta("ice_profile"):
+		surface_y=floe.get_meta("ice_profile").top_height(local_point.x,local_point.z)
+	var landing := floe.to_global(local_point+Vector3.UP*(surface_y+0.485))
 	return landing
 
 
@@ -73,10 +74,7 @@ func _build_marker() -> void:
 	marker_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	marker_material.roughness = 0.26
 	_marker.material_override = marker_material
-	_marker.position = (
-		_exit_direction * floe_radius * 0.68
-		+ Vector3.UP * (floe_height * 0.5 + 0.075)
-	)
+	_marker.position=floe.to_local(get_landing_position())-Vector3.UP*0.41
 	_marker.visible = false
 	floe.add_child(_marker)
 

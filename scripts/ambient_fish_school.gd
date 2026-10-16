@@ -2,6 +2,7 @@ class_name AmbientFishSchool
 extends Node3D
 
 const DEFAULT_FISH_COUNT := 13
+const FISH_MESH := preload("res://scripts/ambient_fish_mesh.gd")
 
 var _multimesh_instance: MultiMeshInstance3D
 var _fish_offsets: Array[Vector3] = []
@@ -35,11 +36,13 @@ func configure(
 	var multimesh := MultiMesh.new()
 	multimesh.transform_format = MultiMesh.TRANSFORM_3D
 	multimesh.use_colors = true
-	multimesh.mesh = _make_fish_mesh(tint)
+	multimesh.use_custom_data = true
+	multimesh.mesh = FISH_MESH.build(tint,random_seed % 3)
 	multimesh.instance_count = fish_count
 
 	_multimesh_instance = MultiMeshInstance3D.new()
-	_multimesh_instance.name = "DecorativeFishSilhouettes"
+	_multimesh_instance.name = "DecorativeFishShoal"
+	_multimesh_instance.extra_cull_margin = 0.15
 	_multimesh_instance.multimesh = multimesh
 	_multimesh_instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(_multimesh_instance)
@@ -57,13 +60,9 @@ func configure(
 		var color_variation := random.randf_range(0.82, 1.12)
 		multimesh.set_instance_color(
 			index,
-			Color(
-				clampf(tint.r * color_variation, 0.0, 1.0),
-				clampf(tint.g * color_variation, 0.0, 1.0),
-				clampf(tint.b * color_variation, 0.0, 1.0),
-				1.0
-			)
+			Color(color_variation,color_variation,color_variation,1.0)
 		)
+		multimesh.set_instance_custom_data(index,Color(_fish_phases[index],random.randf_range(6.2,8.2),random.randf(),1.0))
 	_update_school(0.0)
 
 
@@ -119,43 +118,3 @@ func _update_school(_delta: float) -> void:
 			index,
 			Transform3D(fish_basis, _current_center + offset + individual_wobble)
 		)
-
-
-func _make_fish_mesh(tint: Color) -> ArrayMesh:
-	var surface := SurfaceTool.new()
-	surface.begin(Mesh.PRIMITIVE_TRIANGLES)
-	var nose := Vector3(0.0, 0.0, -0.46)
-	var rear := Vector3(0.0, 0.0, 0.25)
-	var left := Vector3(-0.135, 0.0, -0.02)
-	var right := Vector3(0.135, 0.0, -0.02)
-	var top := Vector3(0.0, 0.14, -0.03)
-	var bottom := Vector3(0.0, -0.14, -0.03)
-	var tail_top := Vector3(0.0, 0.23, 0.51)
-	var tail_bottom := Vector3(0.0, -0.23, 0.51)
-	var triangles := [
-		[nose, left, top],
-		[nose, top, right],
-		[nose, right, bottom],
-		[nose, bottom, left],
-		[rear, top, left],
-		[rear, right, top],
-		[rear, bottom, right],
-		[rear, left, bottom],
-		[rear, tail_top, tail_bottom],
-	]
-	for triangle in triangles:
-		for vertex in triangle:
-			surface.add_vertex(vertex)
-	surface.generate_normals()
-	var mesh := surface.commit()
-
-	var material := StandardMaterial3D.new()
-	material.albedo_color = tint
-	material.vertex_color_use_as_albedo = true
-	material.cull_mode = BaseMaterial3D.CULL_DISABLED
-	material.roughness = 0.72
-	material.emission_enabled = true
-	material.emission = tint * 0.24
-	material.emission_energy_multiplier = 0.42
-	mesh.surface_set_material(0, material)
-	return mesh

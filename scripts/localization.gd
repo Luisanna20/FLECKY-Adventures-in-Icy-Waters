@@ -69,10 +69,10 @@ var _messages := {
 			"3D-МОДЕЛИ\n"
 			+ "Рыбы и акула — Quaternius (CC0)\n"
 			+ "Сундук с золотом — Quaternius (CC0)\n"
-			+ "Краб — Quaternius (CC0)\n"
-			+ "Осьминог — Poly by Google (CC BY)\n"
+			+ "Краб — новая модель; анимации Quaternius (CC0)\n"
+			+ "Осьминог — оригинальная процедурная модель\n"
 			+ "Келп — Poly by Google (CC BY)\n"
-			+ "Seaweed 3 — Laney XR Labs (CC BY)\n\n"
+			+ "Rock Boulder Dry — D. Savva, R. Cilliers (CC0)\n\n"
 			+ "ТЕКСТУРЫ И ЗВУКИ\n"
 			+ "Low Tide Rocks — Dimitrios Savva / Poly Haven (CC0)\n"
 			+ "Snow 02 — Rob Tuytel / Poly Haven (CC0)\n"
@@ -88,10 +88,10 @@ var _messages := {
 			+ "3D-МОДЕЛИ\n"
 			+ "Рыбы и акула — Quaternius (CC0)\n"
 			+ "Сундук с золотом — Quaternius (CC0)\n"
-			+ "Краб — Quaternius (CC0)\n"
-			+ "Осьминог — Poly by Google (CC BY)\n"
+			+ "Краб — новая модель; анимации Quaternius (CC0)\n"
+			+ "Осьминог — оригинальная процедурная модель\n"
 			+ "Келп — Poly by Google (CC BY)\n"
-			+ "Seaweed 3 — Laney XR Labs (CC BY)\n\n"
+			+ "Rock Boulder Dry — D. Savva, R. Cilliers (CC0)\n\n"
 			+ "ТЕКСТУРЫ\n"
 			+ "Low Tide Rocks — Dimitrios Savva / Poly Haven (CC0)\n"
 			+ "Snow 02 — Rob Tuytel / Poly Haven (CC0)\n"
@@ -168,7 +168,9 @@ var _messages := {
 		"PROMPT_BITTEN": "ФЛЭКИ УКУШЕН — СКОРЕЕ НА ЛЬДИНУ!",
 		"PROMPT_RESPAWNED": "ФЛЭКИ СПАСЁН НА БЛИЖАЙШЕЙ ЛЬДИНЕ",
 		"SHARK_SHADOW": "ТЕНЬ ПОД ВОДОЙ…",
-		"SHARK_HIDE": "СПРЯЧЬТЕСЬ НА ЛЬДИНЕ!",
+		"SHARK_HIDE": "УКРОЙТЕСЬ НА ЛЬДИНЕ ИЛИ В ПЕЩЕРЕ!",
+		"PROMPT_CAVE_SAFE": "В ПЕЩЕРЕ БЕЗОПАСНО — АКУЛА СЮДА НЕ ПРОЙДЁТ",
+		"SHARK_CAVE_WAIT": "АКУЛА ЖДЁТ СНАРУЖИ…",
 		"SHARK_CIRCLING": "АКУЛА КРУЖИТ У ЛЬДИНЫ…",
 		"SHARK_LEAVING": "АКУЛА УПЛЫВАЕТ…",
 	},
@@ -232,10 +234,10 @@ var _messages := {
 			"3D-МОДЕЛІ\n"
 			+ "Риби й акула — Quaternius (CC0)\n"
 			+ "Скриня із золотом — Quaternius (CC0)\n"
-			+ "Краб — Quaternius (CC0)\n"
-			+ "Восьминіг — Poly by Google (CC BY)\n"
+			+ "Краб — нова модель; анімації Quaternius (CC0)\n"
+			+ "Восьминіг — оригінальна процедурна модель\n"
 			+ "Келп — Poly by Google (CC BY)\n"
-			+ "Seaweed 3 — Laney XR Labs (CC BY)\n\n"
+			+ "Rock Boulder Dry — D. Savva, R. Cilliers (CC0)\n\n"
 			+ "ТЕКСТУРИ ТА ЗВУКИ\n"
 			+ "Low Tide Rocks — Dimitrios Savva / Poly Haven (CC0)\n"
 			+ "Snow 02 — Rob Tuytel / Poly Haven (CC0)\n"
@@ -251,10 +253,10 @@ var _messages := {
 			+ "3D-МОДЕЛІ\n"
 			+ "Риби й акула — Quaternius (CC0)\n"
 			+ "Скриня із золотом — Quaternius (CC0)\n"
-			+ "Краб — Quaternius (CC0)\n"
-			+ "Восьминіг — Poly by Google (CC BY)\n"
+			+ "Краб — нова модель; анімації Quaternius (CC0)\n"
+			+ "Восьминіг — оригінальна процедурна модель\n"
 			+ "Келп — Poly by Google (CC BY)\n"
-			+ "Seaweed 3 — Laney XR Labs (CC BY)\n\n"
+			+ "Rock Boulder Dry — D. Savva, R. Cilliers (CC0)\n\n"
 			+ "ТЕКСТУРИ\n"
 			+ "Low Tide Rocks — Dimitrios Savva / Poly Haven (CC0)\n"
 			+ "Snow 02 — Rob Tuytel / Poly Haven (CC0)\n"
@@ -331,7 +333,9 @@ var _messages := {
 		"PROMPT_BITTEN": "ФЛЕКІ ВКУСИЛИ — МЕРЩІЙ НА КРИЖИНУ!",
 		"PROMPT_RESPAWNED": "ФЛЕКІ ВРЯТОВАНИЙ НА НАЙБЛИЖЧІЙ КРИЖИНІ",
 		"SHARK_SHADOW": "ТІНЬ ПІД ВОДОЮ…",
-		"SHARK_HIDE": "СХОВАЙТЕСЯ НА КРИЖИНІ!",
+		"SHARK_HIDE": "СХОВАЙТЕСЯ НА КРИЖИНІ АБО В ПЕЧЕРІ!",
+		"PROMPT_CAVE_SAFE": "У ПЕЧЕРІ БЕЗПЕЧНО — АКУЛА СЮДИ НЕ ПРОЙДЕ",
+		"SHARK_CAVE_WAIT": "АКУЛА ЧЕКАЄ ЗОВНІ…",
 		"SHARK_CIRCLING": "АКУЛА КРУЖЛЯЄ БІЛЯ КРИЖИНИ…",
 		"SHARK_LEAVING": "АКУЛА ВІДПЛИВАЄ…",
 	},
@@ -395,10 +399,10 @@ var _messages := {
 			"3D MODELS\n"
 			+ "Fish and shark — Quaternius (CC0)\n"
 			+ "Chest with Gold — Quaternius (CC0)\n"
-			+ "Crab — Quaternius (CC0)\n"
-			+ "Octopus — Poly by Google (CC BY)\n"
-			+ "Kelp — Poly by Google (CC BY)\n"
-			+ "Seaweed 3 — Laney XR Labs (CC BY)\n\n"
+			+ "Crab — original mesh; Quaternius animations (CC0)\n"
+			+ "Octopus — original procedural model\n"
+			+ "Coast Sand 02 — Rob Tuytel / Poly Haven (CC0)\n"
+			+ "Rock Boulder Dry — D. Savva, R. Cilliers (CC0)\n\n"
 			+ "TEXTURES AND SOUNDS\n"
 			+ "Low Tide Rocks — Dimitrios Savva / Poly Haven (CC0)\n"
 			+ "Snow 02 — Rob Tuytel / Poly Haven (CC0)\n"
@@ -414,10 +418,10 @@ var _messages := {
 			+ "3D MODELS\n"
 			+ "Fish and shark — Quaternius (CC0)\n"
 			+ "Chest with Gold — Quaternius (CC0)\n"
-			+ "Crab — Quaternius (CC0)\n"
-			+ "Octopus — Poly by Google (CC BY)\n"
-			+ "Kelp — Poly by Google (CC BY)\n"
-			+ "Seaweed 3 — Laney XR Labs (CC BY)\n\n"
+			+ "Crab — original mesh; Quaternius animations (CC0)\n"
+			+ "Octopus — original procedural model\n"
+			+ "Coast Sand 02 — Rob Tuytel / Poly Haven (CC0)\n"
+			+ "Rock Boulder Dry — D. Savva, R. Cilliers (CC0)\n\n"
 			+ "TEXTURES\n"
 			+ "Low Tide Rocks — Dimitrios Savva / Poly Haven (CC0)\n"
 			+ "Snow 02 — Rob Tuytel / Poly Haven (CC0)\n"
@@ -494,7 +498,9 @@ var _messages := {
 		"PROMPT_BITTEN": "FLECKY WAS BITTEN — GET TO THE ICE!",
 		"PROMPT_RESPAWNED": "FLECKY IS SAFE ON THE NEAREST ICE FLOE",
 		"SHARK_SHADOW": "A SHADOW UNDER THE WATER…",
-		"SHARK_HIDE": "HIDE ON AN ICE FLOE!",
+		"SHARK_HIDE": "HIDE ON THE ICE OR INSIDE THE CAVE!",
+		"PROMPT_CAVE_SAFE": "SAFE INSIDE THE CAVE — THE SHARK CANNOT REACH YOU",
+		"SHARK_CAVE_WAIT": "THE SHARK IS WAITING OUTSIDE…",
 		"SHARK_CIRCLING": "THE SHARK IS CIRCLING THE ICE…",
 		"SHARK_LEAVING": "THE SHARK IS LEAVING…",
 	},

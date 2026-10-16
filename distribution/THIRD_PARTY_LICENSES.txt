@@ -25,12 +25,12 @@ Source: https://poly.pizza/m/haqf9qoiOG
 
 AMBIENT SEA-LIFE MODELS
 
-Crab
+Crab skeleton and animations (visible mesh replaced by an original procedural model)
 Author: Quaternius
 License: Creative Commons Zero 1.0 Universal (CC0 1.0)
 Source: https://poly.pizza/m/Gs3yfsV5lB
 
-Octopus
+Legacy octopus source asset (replaced in the scene by an original procedural model)
 Author: Poly by Google
 License: Creative Commons Attribution 3.0 (CC BY 3.0)
 Source: https://poly.pizza/m/flkOBUVpPHg
@@ -55,6 +55,16 @@ Low Tide Rocks
 Author: Dimitrios Savva / Poly Haven
 License: Creative Commons Zero (CC0)
 Source: https://polyhaven.com/a/low_tide_rocks
+
+Coast Sand 02
+Author: Rob Tuytel / Poly Haven
+License: Creative Commons Zero (CC0)
+Source: https://polyhaven.com/a/coast_sand_02
+
+Rock Boulder Dry
+Authors: Dimitrios Savva and Rico Cilliers / Poly Haven
+License: Creative Commons Zero (CC0)
+Source: https://polyhaven.com/a/rock_boulder_dry
 
 
 SNOW TEXTURE
